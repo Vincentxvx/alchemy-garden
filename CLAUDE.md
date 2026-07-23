@@ -1,4 +1,4 @@
-﻿# CLAUDE.md - Alchemy Garden
+# CLAUDE.md - Alchemy Garden
 
 Roblox incremental garden game. Luau. Solo dev: Vincent - you write the code; he also does the Studio and art passes himself.
 Design + phase plan: BUILD_GUIDE.md. Status: PROJECT.md. Read the relevant phase before coding.
