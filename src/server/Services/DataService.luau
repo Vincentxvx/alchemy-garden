@@ -3,6 +3,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local ProfileStoreLib = require(script.Parent.Parent.Lib.ProfileStore)
 local Types = require(ReplicatedStorage.Shared.Types)
@@ -13,6 +14,7 @@ type PlayerData = Types.PlayerData
 type PlayerProfile = ProfileStoreLib.Profile<PlayerData>
 
 local SYNC_INTERVAL = 1 -- seconds; max StateSync frequency per player
+local STUDIO_TEST_GOLD = 10000 -- Studio-only playtesting convenience; never runs outside RunService:IsStudio()
 
 local Template: PlayerData = {
 	Version = GameConfig.DATA_VERSION,
@@ -160,6 +162,10 @@ local function onPlayerAdded(player: Player)
 	data.Stats.LastSeen = os.time()
 	if data.Stats.FirstJoin == 0 then
 		data.Stats.FirstJoin = os.time()
+	end
+
+	if RunService:IsStudio() then
+		data.Gold = STUDIO_TEST_GOLD
 	end
 
 	getOrCreateLeaderstats(player)
