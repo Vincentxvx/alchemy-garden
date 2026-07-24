@@ -36,6 +36,24 @@ Plants: ReplicatedStorage/Assets/Plants/<SpeciesId>/Stage1..Stage4 - fallback to
 sprout if missing. Tags: GardenPlot(+PlotIndex attr), SoilSlot(+SlotIndex attr), SeedShop,
 AlchemyTable, QuestBoard. FX: ReplicatedStorage/Assets/FX/<Name>, skip if absent.
 
+## UI style (locked, Phase 4)
+- Font: `Enum.Font.FredokaOne` everywhere - one font, no mixing. Rounded/playful, fits the
+  cozy-magical-garden tone.
+- Palette (exactly 3 - do not add more without updating this file first):
+  - Primary/Gold `Color3.fromRGB(255, 176, 59)` - primary CTAs (Buy, Brew, Harvest prompts),
+    the HUD gold pill, key highlights.
+  - Secondary/Leaf `Color3.fromRGB(94, 186, 88)` - positive/secondary actions (Sell, Water,
+    success states).
+  - Surface/Parchment `Color3.fromRGB(255, 248, 231)` - panel and card backgrounds (warm
+    cream, not stark white/grey - reads like a Grimoire page).
+  - Utility neutrals (not part of the 3-color quota, just typography): ink text
+    `Color3.fromRGB(59, 41, 28)` on Parchment surfaces, white text on Primary/Secondary
+    buttons.
+- Corner radius: one `UICorner` value everywhere, `UDim.new(0, 16)` - panels, buttons, cards.
+  No pills, no per-element radii.
+- Touch targets: buttons >=44px effective size; scale-based sizing only, zero pixel-offset
+  layout (BUILD_GUIDE Phase 4 ground rules).
+
 ## MCP tools (Studio bridge)
 The robloxstudio MCP tools can read and write the live Studio DOM directly (Workspace
 included) and can also read/edit scripts - this bypasses Rojo/git entirely.
