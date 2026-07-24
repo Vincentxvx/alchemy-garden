@@ -22,3 +22,4 @@ one phase = one session, so the numbers are accurate.
 | Phase | Date | Models | Input | Output | Cache read | Cache write | Total tokens | Est. cost |
 |---|---|---|---|---|---|---|---|---|
 | Phase 0 | 2026-07-24 | sonnet-5, opus-4-8 | 3,773 | 72,657 | 5,029,754 | 198,557 | 5,304,741 | $5.34 |
+| Phase 1 | 2026-07-24 | sonnet-5 | 142 | 73,553 | 10,013,913 | 165,268 | 10,252,876 | $3.4 |
