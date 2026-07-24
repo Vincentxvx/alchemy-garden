@@ -6,6 +6,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$inv = [System.Globalization.CultureInfo]::InvariantCulture
 
 $repo      = Split-Path -Parent $PSScriptRoot
 $usageFile = Join-Path $repo "USAGE.md"
@@ -27,7 +28,6 @@ catch {
     exit 1
 }
 
-# ccusage nests the per-session array under .session
 $entries = $json.session
 if (-not $entries) { $entries = $json.data }
 if (-not $entries) { $entries = $json }
@@ -51,16 +51,23 @@ if (-not $models) { $models = "-" }
 $models = ($models -replace "claude-", "" -replace "-\d{8}", "")
 
 $when = ([datetime]$latest.metadata.lastActivity).ToLocalTime()
-$date = $when.ToString("yyyy-MM-dd")
-$costStr = if ($cost -gt 0) { "`$" + ([math]::Round($cost, 2)) } else { "-" }
+$date = $when.ToString("yyyy-MM-dd", $inv)
+$costStr = if ($cost -gt 0) { "`$" + [math]::Round($cost, 2).ToString($inv) } else { "-" }
 
-$row = "| {0} | {1} | {2} | {3:N0} | {4:N0} | {5:N0} | {6:N0} | {7:N0} | {8} |" -f `
-    $Phase, $date, $models, $inTok, $outTok, $cacheR, $cacheW, $total, $costStr
+$row = "| {0} | {1} | {2} | {3} | {4} | {5} | {6} | {7} | {8} |" -f `
+    $Phase, $date, $models,
+    $inTok.ToString("N0", $inv), $outTok.ToString("N0", $inv),
+    $cacheR.ToString("N0", $inv), $cacheW.ToString("N0", $inv),
+    $total.ToString("N0", $inv), $costStr
+
+# Guarantee the file ends with a newline before appending, or the row glues onto the last line
+$content = [System.IO.File]::ReadAllText($usageFile)
+if ($content -and -not $content.EndsWith("`n")) { $content += "`r`n" }
+$content += $row + "`r`n"
+[System.IO.File]::WriteAllText($usageFile, $content, [System.Text.Encoding]::ASCII)
 
 Write-Host ""
 Write-Host ("Session {0}  (last activity {1})" -f $latest.period, $when)
 Write-Host $row
-
-Add-Content -Path $usageFile -Encoding ascii -Value $row
 Write-Host ""
 Write-Host "Appended to USAGE.md."
