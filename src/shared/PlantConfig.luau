@@ -1,22 +1,40 @@
 --!strict
--- TEMPORARY 4-species stub for Phase 2 (garden state machine) testing only.
--- Full 46-species table (BUILD_GUIDE.md Appendix B) replaces this wholesale in Phase 3 -
--- do not extend this table piecemeal.
+-- Full 46-species content table. Design: BUILD_GUIDE.md Appendix B (name bank + curves) +
+-- §2.5 (economy table) + §2.7 (content scope). Do not extend piecemeal - species additions
+-- go through BUILD_GUIDE.md first.
+--
+-- Curve summary (locked, §2.5):
+--   Tier   SeedCost  GrowDuration  SellValue (shop seeds)
+--   1        25        60s           45
+--   2        100       5m            190
+--   3        400       20m           850
+--   4        1,600     1h            3,600
+--   5        6,400     4h            15,500
+--   6        25,600    12h           68,000
+-- Hybrids (SeedCost = nil, obtained only via AlchemyService brewing) sell ~20% better per
+-- hour than a same-tier shop seed: SellValue = shopSellValue(tier) * 1.2.
+--
+-- 12 shop seeds span T1-T2 (8 T1 + 4 T2); six of those twelve are ShopUnlock-gated behind a
+-- Grimoire discovery-count milestone (BUILD_GUIDE Phase 3 scope), the rest are available from
+-- first join. All T3-T6 species (33 total, "33 hybrids T2-T6" per §2.7) plus Sproutling are
+-- hybrid-only: obtained by brewing at the Alchemy Table, never sold in the shop.
 
 export type PlantDef = {
 	Name: string,
 	Tier: number,
-	SeedCost: number,
+	SeedCost: number?, -- nil for hybrid-only species (never sold in the shop)
 	SellValue: number,
 	GrowDuration: number, -- seconds, base duration before water multiplier
-	MeshFamily: string,
+	MeshFamily: string, -- one of the 5 v1.0 families: Flower, Mushroom, Vine, Bulb, Crystal
 	Color: Color3,
+	ShopUnlock: number?, -- nil (available from start) | Grimoire discovered-count required
 }
 
 export type PlantConfig = { [string]: PlantDef }
 
 -- Keys are the species/seed id used throughout PlayerData (Seeds, Plants, Grimoire, Slots.SeedId).
 local PlantConfig: PlantConfig = {
+	-- ===== Tier 1 Common - shop seeds (8) =====
 	Sunbud = {
 		Name = "Sunbud",
 		Tier = 1,
@@ -25,6 +43,7 @@ local PlantConfig: PlantConfig = {
 		GrowDuration = 60,
 		MeshFamily = "Flower",
 		Color = Color3.fromRGB(255, 200, 40),
+		ShopUnlock = nil,
 	},
 	Dewroot = {
 		Name = "Dewroot",
@@ -34,15 +53,27 @@ local PlantConfig: PlantConfig = {
 		GrowDuration = 60,
 		MeshFamily = "Vine",
 		Color = Color3.fromRGB(90, 190, 210),
+		ShopUnlock = nil,
 	},
 	Glowcap = {
 		Name = "Glowcap",
-		Tier = 2,
-		SeedCost = 100,
-		SellValue = 190,
-		GrowDuration = 300,
+		Tier = 1,
+		SeedCost = 25,
+		SellValue = 45,
+		GrowDuration = 60,
 		MeshFamily = "Mushroom",
 		Color = Color3.fromRGB(120, 230, 160),
+		ShopUnlock = nil,
+	},
+	Mooncress = {
+		Name = "Mooncress",
+		Tier = 1,
+		SeedCost = 25,
+		SellValue = 45,
+		GrowDuration = 60,
+		MeshFamily = "Bulb",
+		Color = Color3.fromRGB(200, 215, 235),
+		ShopUnlock = nil,
 	},
 	Emberlily = {
 		Name = "Emberlily",
@@ -52,6 +83,433 @@ local PlantConfig: PlantConfig = {
 		GrowDuration = 60,
 		MeshFamily = "Flower",
 		Color = Color3.fromRGB(230, 90, 60),
+		ShopUnlock = nil,
+	},
+	Frostfern = {
+		Name = "Frostfern",
+		Tier = 1,
+		SeedCost = 25,
+		SellValue = 45,
+		GrowDuration = 60,
+		MeshFamily = "Vine",
+		Color = Color3.fromRGB(190, 225, 235),
+		ShopUnlock = nil,
+	},
+	Thornrose = {
+		Name = "Thornrose",
+		Tier = 1,
+		SeedCost = 25,
+		SellValue = 45,
+		GrowDuration = 60,
+		MeshFamily = "Flower",
+		Color = Color3.fromRGB(180, 40, 60),
+		ShopUnlock = 3,
+	},
+	Sparkvine = {
+		Name = "Sparkvine",
+		Tier = 1,
+		SeedCost = 25,
+		SellValue = 45,
+		GrowDuration = 60,
+		MeshFamily = "Vine",
+		Color = Color3.fromRGB(210, 230, 60),
+		ShopUnlock = 5,
+	},
+
+	-- ===== Tier 2 Uncommon - shop seeds (4, all ShopUnlock-gated) =====
+	Honeybell = {
+		Name = "Honeybell",
+		Tier = 2,
+		SeedCost = 100,
+		SellValue = 190,
+		GrowDuration = 300,
+		MeshFamily = "Bulb",
+		Color = Color3.fromRGB(235, 180, 70),
+		ShopUnlock = 7,
+	},
+	Puffshroom = {
+		Name = "Puffshroom",
+		Tier = 2,
+		SeedCost = 100,
+		SellValue = 190,
+		GrowDuration = 300,
+		MeshFamily = "Mushroom",
+		Color = Color3.fromRGB(235, 190, 210),
+		ShopUnlock = 9,
+	},
+	Tanglevine = {
+		Name = "Tanglevine",
+		Tier = 2,
+		SeedCost = 100,
+		SellValue = 190,
+		GrowDuration = 300,
+		MeshFamily = "Vine",
+		Color = Color3.fromRGB(60, 140, 70),
+		ShopUnlock = 12,
+	},
+	Duskpetal = {
+		Name = "Duskpetal",
+		Tier = 2,
+		SeedCost = 100,
+		SellValue = 190,
+		GrowDuration = 300,
+		MeshFamily = "Flower",
+		Color = Color3.fromRGB(120, 80, 150),
+		ShopUnlock = 15,
+	},
+
+	-- ===== Tier 2 Uncommon - hybrids (6) =====
+	Twinshine = {
+		Name = "Twinshine",
+		Tier = 2,
+		SeedCost = nil,
+		SellValue = 228,
+		GrowDuration = 300,
+		MeshFamily = "Crystal",
+		Color = Color3.fromRGB(230, 225, 190),
+		ShopUnlock = nil,
+	},
+	Coppercress = {
+		Name = "Coppercress",
+		Tier = 2,
+		SeedCost = nil,
+		SellValue = 228,
+		GrowDuration = 300,
+		MeshFamily = "Bulb",
+		Color = Color3.fromRGB(190, 110, 60),
+		ShopUnlock = nil,
+	},
+	Bramblewick = {
+		Name = "Bramblewick",
+		Tier = 2,
+		SeedCost = nil,
+		SellValue = 228,
+		GrowDuration = 300,
+		MeshFamily = "Vine",
+		Color = Color3.fromRGB(110, 90, 50),
+		ShopUnlock = nil,
+	},
+	Palefrond = {
+		Name = "Palefrond",
+		Tier = 2,
+		SeedCost = nil,
+		SellValue = 228,
+		GrowDuration = 300,
+		MeshFamily = "Vine",
+		Color = Color3.fromRGB(200, 230, 200),
+		ShopUnlock = nil,
+	},
+	Cinderpuff = {
+		Name = "Cinderpuff",
+		Tier = 2,
+		SeedCost = nil,
+		SellValue = 228,
+		GrowDuration = 300,
+		MeshFamily = "Mushroom",
+		Color = Color3.fromRGB(150, 90, 80),
+		ShopUnlock = nil,
+	},
+	Mistleaf = {
+		Name = "Mistleaf",
+		Tier = 2,
+		SeedCost = nil,
+		SellValue = 228,
+		GrowDuration = 300,
+		MeshFamily = "Flower",
+		Color = Color3.fromRGB(180, 210, 200),
+		ShopUnlock = nil,
+	},
+
+	-- ===== Tier 3 Rare - hybrids (10) =====
+	Mistrose = {
+		Name = "Mistrose",
+		Tier = 3,
+		SeedCost = nil,
+		SellValue = 1020,
+		GrowDuration = 1200,
+		MeshFamily = "Flower",
+		Color = Color3.fromRGB(200, 180, 190),
+		ShopUnlock = nil,
+	},
+	Gloomcap = {
+		Name = "Gloomcap",
+		Tier = 3,
+		SeedCost = nil,
+		SellValue = 1020,
+		GrowDuration = 1200,
+		MeshFamily = "Mushroom",
+		Color = Color3.fromRGB(80, 60, 110),
+		ShopUnlock = nil,
+	},
+	Sablethorn = {
+		Name = "Sablethorn",
+		Tier = 3,
+		SeedCost = nil,
+		SellValue = 1020,
+		GrowDuration = 1200,
+		MeshFamily = "Flower",
+		Color = Color3.fromRGB(50, 30, 35),
+		ShopUnlock = nil,
+	},
+	Prismbud = {
+		Name = "Prismbud",
+		Tier = 3,
+		SeedCost = nil,
+		SellValue = 1020,
+		GrowDuration = 1200,
+		MeshFamily = "Crystal",
+		Color = Color3.fromRGB(170, 140, 220),
+		ShopUnlock = nil,
+	},
+	Wispvine = {
+		Name = "Wispvine",
+		Tier = 3,
+		SeedCost = nil,
+		SellValue = 1020,
+		GrowDuration = 1200,
+		MeshFamily = "Vine",
+		Color = Color3.fromRGB(210, 225, 235),
+		ShopUnlock = nil,
+	},
+	Marrowroot = {
+		Name = "Marrowroot",
+		Tier = 3,
+		SeedCost = nil,
+		SellValue = 1020,
+		GrowDuration = 1200,
+		MeshFamily = "Bulb",
+		Color = Color3.fromRGB(210, 200, 175),
+		ShopUnlock = nil,
+	},
+	Suncrown = {
+		Name = "Suncrown",
+		Tier = 3,
+		SeedCost = nil,
+		SellValue = 1020,
+		GrowDuration = 1200,
+		MeshFamily = "Flower",
+		Color = Color3.fromRGB(250, 175, 50),
+		ShopUnlock = nil,
+	},
+	Tidebloom = {
+		Name = "Tidebloom",
+		Tier = 3,
+		SeedCost = nil,
+		SellValue = 1020,
+		GrowDuration = 1200,
+		MeshFamily = "Flower",
+		Color = Color3.fromRGB(60, 140, 190),
+		ShopUnlock = nil,
+	},
+	Ashfern = {
+		Name = "Ashfern",
+		Tier = 3,
+		SeedCost = nil,
+		SellValue = 1020,
+		GrowDuration = 1200,
+		MeshFamily = "Vine",
+		Color = Color3.fromRGB(140, 150, 130),
+		ShopUnlock = nil,
+	},
+	Chimebell = {
+		Name = "Chimebell",
+		Tier = 3,
+		SeedCost = nil,
+		SellValue = 1020,
+		GrowDuration = 1200,
+		MeshFamily = "Bulb",
+		Color = Color3.fromRGB(180, 205, 225),
+		ShopUnlock = nil,
+	},
+
+	-- ===== Tier 4 Epic - hybrids (8) =====
+	Eclipsebell = {
+		Name = "Eclipsebell",
+		Tier = 4,
+		SeedCost = nil,
+		SellValue = 4320,
+		GrowDuration = 3600,
+		MeshFamily = "Bulb",
+		Color = Color3.fromRGB(40, 40, 70),
+		ShopUnlock = nil,
+	},
+	Stormbriar = {
+		Name = "Stormbriar",
+		Tier = 4,
+		SeedCost = nil,
+		SellValue = 4320,
+		GrowDuration = 3600,
+		MeshFamily = "Vine",
+		Color = Color3.fromRGB(90, 90, 120),
+		ShopUnlock = nil,
+	},
+	Ironbloom = {
+		Name = "Ironbloom",
+		Tier = 4,
+		SeedCost = nil,
+		SellValue = 4320,
+		GrowDuration = 3600,
+		MeshFamily = "Flower",
+		Color = Color3.fromRGB(110, 120, 130),
+		ShopUnlock = nil,
+	},
+	Starcress = {
+		Name = "Starcress",
+		Tier = 4,
+		SeedCost = nil,
+		SellValue = 4320,
+		GrowDuration = 3600,
+		MeshFamily = "Bulb",
+		Color = Color3.fromRGB(50, 60, 110),
+		ShopUnlock = nil,
+	},
+	Voidpetal = {
+		Name = "Voidpetal",
+		Tier = 4,
+		SeedCost = nil,
+		SellValue = 4320,
+		GrowDuration = 3600,
+		MeshFamily = "Flower",
+		Color = Color3.fromRGB(35, 20, 50),
+		ShopUnlock = nil,
+	},
+	Frostlily = {
+		Name = "Frostlily",
+		Tier = 4,
+		SeedCost = nil,
+		SellValue = 4320,
+		GrowDuration = 3600,
+		MeshFamily = "Flower",
+		Color = Color3.fromRGB(215, 235, 245),
+		ShopUnlock = nil,
+	},
+	Crystalcap = {
+		Name = "Crystalcap",
+		Tier = 4,
+		SeedCost = nil,
+		SellValue = 4320,
+		GrowDuration = 3600,
+		MeshFamily = "Crystal",
+		Color = Color3.fromRGB(200, 230, 240),
+		ShopUnlock = nil,
+	},
+	Dreamvine = {
+		Name = "Dreamvine",
+		Tier = 4,
+		SeedCost = nil,
+		SellValue = 4320,
+		GrowDuration = 3600,
+		MeshFamily = "Vine",
+		Color = Color3.fromRGB(190, 160, 220),
+		ShopUnlock = nil,
+	},
+
+	-- ===== Tier 5 Legendary - hybrids (6, chain-only per BUILD_GUIDE Appendix B) =====
+	AuroraFern = {
+		Name = "Aurora Fern",
+		Tier = 5,
+		SeedCost = nil,
+		SellValue = 18600,
+		GrowDuration = 14400,
+		MeshFamily = "Vine",
+		Color = Color3.fromRGB(100, 220, 180),
+		ShopUnlock = nil,
+	},
+	Phoenixbud = {
+		Name = "Phoenixbud",
+		Tier = 5,
+		SeedCost = nil,
+		SellValue = 18600,
+		GrowDuration = 14400,
+		MeshFamily = "Flower",
+		Color = Color3.fromRGB(250, 110, 30),
+		ShopUnlock = nil,
+	},
+	MoonwellRose = {
+		Name = "Moonwell Rose",
+		Tier = 5,
+		SeedCost = nil,
+		SellValue = 18600,
+		GrowDuration = 14400,
+		MeshFamily = "Flower",
+		Color = Color3.fromRGB(210, 220, 240),
+		ShopUnlock = nil,
+	},
+	LeviathanKelp = {
+		Name = "Leviathan Kelp",
+		Tier = 5,
+		SeedCost = nil,
+		SellValue = 18600,
+		GrowDuration = 14400,
+		MeshFamily = "Vine",
+		Color = Color3.fromRGB(30, 90, 80),
+		ShopUnlock = nil,
+	},
+	SylvanHeart = {
+		Name = "Sylvan Heart",
+		Tier = 5,
+		SeedCost = nil,
+		SellValue = 18600,
+		GrowDuration = 14400,
+		MeshFamily = "Crystal",
+		Color = Color3.fromRGB(60, 160, 90),
+		ShopUnlock = nil,
+	},
+	CometOrchid = {
+		Name = "Comet Orchid",
+		Tier = 5,
+		SeedCost = nil,
+		SellValue = 18600,
+		GrowDuration = 14400,
+		MeshFamily = "Flower",
+		Color = Color3.fromRGB(190, 220, 255),
+		ShopUnlock = nil,
+	},
+
+	-- ===== Tier 6 Mythic - hybrids (3, chain-only per BUILD_GUIDE Appendix B) =====
+	WorldtreeSapling = {
+		Name = "Worldtree Sapling",
+		Tier = 6,
+		SeedCost = nil,
+		SellValue = 81600,
+		GrowDuration = 43200,
+		MeshFamily = "Vine",
+		Color = Color3.fromRGB(90, 70, 40),
+		ShopUnlock = nil,
+	},
+	GenesisBloom = {
+		Name = "Genesis Bloom",
+		Tier = 6,
+		SeedCost = nil,
+		SellValue = 81600,
+		GrowDuration = 43200,
+		MeshFamily = "Crystal",
+		Color = Color3.fromRGB(255, 245, 210),
+		ShopUnlock = nil,
+	},
+	-- 45-milestone exclusive (BUILD_GUIDE §2.4): also brewable here so RecipeConfig keeps
+	-- every hybrid reachable; the Grimoire-45 reward path (Phase 5) grants it directly too.
+	AlchemistsRose = {
+		Name = "Alchemist's Rose",
+		Tier = 6,
+		SeedCost = nil,
+		SellValue = 81600,
+		GrowDuration = 43200,
+		MeshFamily = "Flower",
+		Color = Color3.fromRGB(140, 60, 160),
+		ShopUnlock = nil,
+	},
+
+	-- ===== Filler: brew-only dud result, still a real (low-value) Grimoire entry =====
+	Sproutling = {
+		Name = "Sproutling",
+		Tier = 1,
+		SeedCost = nil,
+		SellValue = 15,
+		GrowDuration = 60,
+		MeshFamily = "Flower",
+		Color = Color3.fromRGB(140, 150, 110),
+		ShopUnlock = nil,
 	},
 }
 
