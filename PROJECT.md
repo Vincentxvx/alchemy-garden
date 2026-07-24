@@ -13,8 +13,8 @@
 - **What we're building:** **Alchemy Garden** (working title; leading store name "Grow an Alchemy Garden 🌿") — a Roblox incremental garden game: plants grow offline, cross-breed at an alchemy table via ~40 hidden recipes into 45 discoverable species, tracked in a Grimoire collection log; 6-player neighborhood servers.
 - **Primary track:** Roblox — this game.
 - **Secondary track:** Fortnite (UEFN) — **paused** until Roblox v1.0 ships (research complete, see `fortnite.md`).
-- **Current phase:** Phase 2 complete. Design + 12-phase plan locked in `BUILD_GUIDE.md` v1.1 (Solo Edition); all Claude Code prompts in `PROMPTS.md`.
-- **Next milestone:** Phase 3 — economy: shop, selling, full 46-species content table (default model). Full PlantConfig + RecipeConfig, EconomyService buy/sell/slots.
+- **Current phase:** Phase 3 complete. Design + 12-phase plan locked in `BUILD_GUIDE.md` v1.1 (Solo Edition); all Claude Code prompts in `PROMPTS.md`.
+- **Next milestone:** Phase 4 — UI suite v1 (HUD, Shop, Inventory, Grimoire, Alchemy screens, toasts; mobile-first, scale-only sizing). Command-bar-only testing ends here.
 
 ---
 
@@ -42,7 +42,7 @@
 | leaderstats | **done — Phase 1** | Gold, Discovered, kept in sync via DataService |
 | Plot assignment | **done — Phase 1** | 6 plots/server via `PlotService`, CollectionService tags, per-player plot claim/release, sign write-back |
 | Garden growth | **done — Phase 2** | timestamp-based state machine (`GardenService`): plant/water/harvest, offline growth verified, 1 Hz visual loop + ProximityPrompt state, stub 4-species `PlantConfig` (replaced Phase 3) |
-| Economy / shop | planned — Phase 3 | 46-species PlantConfig + ~40 RecipeConfig |
+| Economy / shop | **done — Phase 3** | `EconomyService` (BuySeed / SellPlant incl. qty=`"all"` / BuySlot), full 46-species `PlantConfig` (12 shop seeds incl. 6 milestone-gated + 33 hybrids + Sproutling), 40-recipe `RecipeConfig` (all hybrids reachable, ~36% of random T1×T1 pairs resolve) |
 | GUI suite | planned — Phase 4 | mobile-first, scale-only sizing, component factory |
 | Alchemy + Grimoire | planned — Phase 5 | hidden recipes, milestones, Research Notes pity |
 | Streaks / quests / welcome-back | planned — Phase 6 | UTC date keys |
@@ -56,12 +56,12 @@
 
 | Script | Type | Location in Studio | Responsibility | Status |
 |---|---|---|---|---|
-| `init.server` | Script | ServerScriptService.Server | boots Services in order (Data, Plot, Garden) | ✅ Phase 1 (Garden wired Phase 2) |
+| `init.server` | Script | ServerScriptService.Server | boots Services in order (Data, Plot, Garden, Economy) | ✅ Phase 1 (Garden wired Phase 2, Economy wired Phase 3) |
 | `Lib/ProfileStore` | ModuleScript | …Server.Lib | vendored save library | ✅ Phase 0 |
 | `DataService` | ModuleScript | …Server.Services | profiles, template, leaderstats, StateSync, AdjustGold | ✅ Phase 1 |
 | `PlotService` | ModuleScript | …Server.Services | plot claim/release, sign write-back | ✅ Phase 1 |
 | `GardenService` | ModuleScript | …Server.Services | plant/water/harvest state machine, EffectiveProgress math, 1 Hz visual loop, rate limiting | ✅ Phase 2 |
-| `EconomyService` | ModuleScript | …Server.Services | buy/sell/slots, perks | planned — Phase 3 |
+| `EconomyService` | ModuleScript | …Server.Services | BuySeed/SellPlant/BuySlot, rate-limited, prices from configs only | ✅ Phase 3 (perks still planned — later phase) |
 | `AlchemyService` | ModuleScript | …Server.Services | brewing, discovery, milestones | planned — Phase 5 |
 | `QuestService` / `StreakService` | ModuleScripts | …Server.Services | daily loops | planned — Phase 6 |
 | `SocialService` | ModuleScript | …Server.Services | Friend Boost, gifting | planned — Phase 7 |
@@ -72,7 +72,8 @@
 | `Shared/Types.luau` | ModuleScript | ReplicatedStorage.Shared | PlayerData types, Version = 1 | ✅ Phase 1 |
 | `Shared/GameConfig.luau` | ModuleScript | ReplicatedStorage.Shared | tunables (slots, water mult, etc.) | ✅ Phase 1 |
 | `Shared/Remotes.luau` | ModuleScript | ReplicatedStorage.Shared | sole source for all remotes | ✅ Phase 1 (garden remotes live Phase 2; shop/alchemy/social remotes wired as their phases land) |
-| `Shared/PlantConfig.luau` | ModuleScript | ReplicatedStorage.Shared | species data | 🟡 Phase 2 stub (4 species) — full 46-species table replaces it Phase 3 |
+| `Shared/PlantConfig.luau` | ModuleScript | ReplicatedStorage.Shared | full 46-species data (12 shop seeds + 33 hybrids + Sproutling) | ✅ Phase 3 (replaced the Phase 2 4-species stub) |
+| `Shared/RecipeConfig.luau` | ModuleScript | ReplicatedStorage.Shared | ~40 hidden brewing recipes, `GetResult(a, b)` helper | ✅ Phase 3 |
 
 ### 3.4 Conventions (locked decisions)
 - **Naming:** PascalCase modules/Services, camelCase locals; `--!strict` where practical.
@@ -108,6 +109,8 @@
 - **2026-07-XX** — **Phase 0 shipped** — repo, Rojo, Greenhouse Studio group + private dev place, boot scripts verified.
 - **2026-07-24** — **Phase 1 shipped** — data foundation + plot assignment (ProfileStore-backed DataService, PlotService, Types/GameConfig/Remotes scaffolding). Definition of Done met per BUILD_GUIDE (2-client plot/sign assignment, gold persistence across rejoin, Selene clean).
 - **2026-07-24** — **Phase 2 shipped** — full garden state machine (`GardenService`): plant/water/harvest, watered-time growth math (EffectiveProgress), offline progression confirmed (stop/wait/resume test), 1 Hz stage-visual loop with ProximityPrompt state text, per-remote rate limiting, client `GardenController` with harvest pop tween. Temporary 4-species `PlantConfig` stub in place — full 46-species table is Phase 3. Definition of Done met (solo + 2-client tests, offline growth verified, rejected cross-plot harvest logs without erroring, mesh fallback confirmed).
+- **2026-07-24** — **Phase 3 shipped** — `EconomyService` (BuySeed/SellPlant/BuySlot), full 46-species `PlantConfig` (BUILD_GUIDE Appendix B curves: 8 free-from-start + 6 milestone-gated shop seeds across T1–T2, 33 hybrids T2–T6, Sproutling filler), and a 40-recipe `RecipeConfig` (every hybrid reachable, T5/T6 chain from hybrid parents only, ~36% of random T1×T1 pairs resolve). Definition of Done verified live via `eval_server_runtime` against the running playtest (not the Command Bar — see below): Sunbud buy/sell nets the exact §2.5 profit (+20/cycle), insufficient-gold and milestone-lock rejections both hold, `BuySlot` correctly reveals slot 7's world part (Transparency 1→0, CanCollide false→true) at the exact `SLOT_COSTS[7]` price, and 5/5 spot-checked recipes plus one genuinely-undefined pair (→ nil, Sproutling fallback) all resolved correctly. Selene clean (0 errors; only pre-existing unrelated warnings in vendored `ProfileStore.luau`).
+- **2026-07-24** — **Reconfirmed:** Roblox Studio's own Command Bar can silently execute in an isolated VM/module cache during a live multi-client playtest (same failure class as MCP's `execute_luau`) — a Command Bar diagnostic reported `DataService.GetData(player)` as permanently `nil` for a player whose profile was actually loaded and working the whole time, evidenced by a duplicated `[ProfileStore]: Roblox API services available` log line (that print only fires once per module load). Use `eval_server_runtime`/`eval_client_runtime` to inspect or mutate live player-module state going forward — never trust the Command Bar for this during a playtest.
 
 ---
 
