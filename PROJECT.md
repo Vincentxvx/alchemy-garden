@@ -4,7 +4,7 @@
 >
 > **How to use:** Paste this file (or attach it) at the start of a new chat. Keep it tighter than the raw code it replaces — if it bloats, trim it.
 >
-> **Last updated:** 2026-07-05 by Vincent
+> **Last updated:** 2026-07-24 by Vincent
 
 ---
 
@@ -13,8 +13,8 @@
 - **What we're building:** **Alchemy Garden** (working title; leading store name "Grow an Alchemy Garden 🌿") — a Roblox incremental garden game: plants grow offline, cross-breed at an alchemy table via ~40 hidden recipes into 45 discoverable species, tracked in a Grimoire collection log; 6-player neighborhood servers.
 - **Primary track:** Roblox — this game.
 - **Secondary track:** Fortnite (UEFN) — **paused** until Roblox v1.0 ships (research complete, see `fortnite.md`).
-- **Current phase:** pre-build. Design + 12-phase plan locked in `BUILD_GUIDE.md` v1.1 (Solo Edition); all Claude Code prompts in `PROMPTS.md`.
-- **Next milestone:** Phase 0 complete — repo `alchemy-garden` on GitHub **with `origin` connected before first push**, Rojo syncing, private dev place published under the group, Roblox group + Discord created.
+- **Current phase:** Phase 1 complete — data foundation + plot assignment shipped and verified live in a 2-client Studio session.
+- **Next milestone:** Phase 2 — planting, growth & offline progress (the full grow/water/harvest state machine).
 
 ---
 
@@ -37,9 +37,9 @@
 
 | System | Status | Notes |
 |---|---|---|
-| Data/saving (ProfileStore) | planned — Phase 1 | vendored, session-locked; schema in BUILD_GUIDE App. A |
-| leaderstats | planned — Phase 1 | Gold, Discovered |
-| Plot assignment | planned — Phase 1 | 6 plots/server, CollectionService tags |
+| Data/saving (ProfileStore) | **done — Phase 1** | vendored, session-locked; `DataService.AdjustGold` verified end-to-end live (Studio API access on, real DataStore write path, `Data.Gold` + `leaderstats.Gold` both confirmed in sync) |
+| leaderstats | **done — Phase 1** | Gold, Discovered `IntValue`s, kept in sync via `DataService.Sync`/`MarkDirty` |
+| Plot assignment | **done — Phase 1** | 6 plots/server via CollectionService tags; `PlotService.GetPlot`/`GetOwner`; world built via robloxstudio MCP (6-plot ring, 144 SoilSlot parts w/ correct Transparency+CanCollide split at slot 7, plaza props, spawn, name signs) |
 | Garden growth | planned — Phase 2 | timestamp-based; offline growth free by design |
 | Economy / shop | planned — Phase 3 | 46-species PlantConfig + ~40 RecipeConfig |
 | GUI suite | planned — Phase 4 | mobile-first, scale-only sizing, component factory |
@@ -100,6 +100,8 @@
 - **2026-07-04** — **Group ownership from Phase 0** — payout eligibility has waiting periods.
 - **2026-07-05** — **Project goes solo** (Mio stepped away) — BUILD_GUIDE → v1.1 Solo Edition: art cut to 5 mesh families (20 models), store art via in-Studio screenshots, 1 launch clip/day, Team Create dropped; timeline held at 6–9 weeks via these cuts.
 - **2026-07-05** — Pressure-washer game **parked indefinitely** — served its purpose as the toolchain learning project; patterns carry over.
+- **2026-07-24** — **Phase 1 shipped**: `Types`/`GameConfig`/`Remotes`/`DataService`/`PlotService` landed (stylua+selene clean), placeholder world (6-plot ring, 144 soil slots, plaza props, spawn, name signs) built directly via robloxstudio MCP tools per §3.7. Verified live in a 2-client Studio session: session-locked profile confirmed active, `AdjustGold` confirmed mutating `Data.Gold` and syncing `leaderstats` after enabling Studio API access for real DataStore writes.
+- **2026-07-24** — MCP tooling note: `execute_luau target=server/client-N` runs in a separate plugin-security VM with its own fresh module require cache — it does **not** see the real running game's module state (e.g. `DataService`'s `profiles` table came back empty/wrong there). Use `eval_server_runtime`/`eval_client_runtime` instead whenever inspecting live module state from a running playtest; `execute_luau` stays right for one-off Workspace/world edits.
 
 ---
 
@@ -108,7 +110,7 @@
 - [ ] Final store title (leading: "Grow an Alchemy Garden 🌿") — decide by Phase 11
 - [ ] Recruit 3–5 playtesters (friends/Discord) before Phase 10
 - [ ] Set up a second Roblox account friended to main for Phase 7 social testing
-- [ ] Connect GitHub `origin` in Phase 0 **before** first push (previous project's push failed on missing remote)
+- [x] Connect GitHub `origin` in Phase 0 **before** first push — done, `origin` tracks `github.com/Vincentxvx/alchemy-garden`
 
 ---
 
