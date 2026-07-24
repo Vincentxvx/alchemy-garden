@@ -17,4 +17,4 @@ Max plan it is NOT a bill - usage is included in the subscription. It is here on
 rough sense of relative phase weight.
 
 | Phase | Date | Models | Input | Output | Cache read | Cache write | Total tokens | Est. cost |
-|---|---|---|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|---|---|| Phase 0 | 2026-07-24 | sonnet-5, opus-4-8 | 3.773 | 72.657 | 5.029.754 | 198.557 | 5.304.741 | $5.34 |
