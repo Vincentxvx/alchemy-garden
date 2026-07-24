@@ -7,6 +7,9 @@ export type GameConfig = {
 	MAX_SLOTS: number,
 	WATER_MULT: number,
 	WATER_DURATION: number,
+	WATER_RANGE: number,
+	PROMPT_MAX_DISTANCE: number,
+	RATE_LIMIT_PER_SECOND: number,
 	SLOT_COSTS: { [number]: number },
 	DATA_VERSION: number,
 }
@@ -18,6 +21,10 @@ local GameConfig: GameConfig = {
 
 	WATER_MULT = 1.25, -- growth speed multiplier while a slot is watered
 	WATER_DURATION = 600, -- seconds a single water application lasts
+	WATER_RANGE = 20, -- studs a player must be within to water a slot (owner included)
+	PROMPT_MAX_DISTANCE = 10, -- ProximityPrompt activation distance on soil slots
+
+	RATE_LIMIT_PER_SECOND = 5, -- max client->server garden remote calls per player per second
 
 	-- Cost (gold) to unlock the Nth soil slot, for N in 7..24 (slots 1-6 are free/starting).
 	-- Placeholder curve (~1.3x per slot) - tune in playtest per BUILD_GUIDE §2.5.
