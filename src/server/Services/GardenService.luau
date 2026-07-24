@@ -1,7 +1,6 @@
 --!strict
 -- Authoritative plant/water/harvest state machine. Growth is derived (timestamp-based),
 -- never simulated - see EffectiveProgress below. Design: BUILD_GUIDE.md §2.2 + Phase 2 notes.
--- World visuals + ProximityPrompt management land in a follow-up commit.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -19,11 +18,24 @@ local GARDEN_PLOT_TAG = "GardenPlot"
 local SOIL_SLOT_TAG = "SoilSlot"
 local RATE_LIMIT_WINDOW = 1 -- seconds
 
+-- Stage-1..3 sphere diameter (studs) used only when no ReplicatedStorage.Assets model exists.
+-- Stage 4 (Ready) always uses the last entry.
+local FALLBACK_STAGE_SIZES = { 0.6, 1.0, 1.4, 1.8 }
+
 local GardenService = {}
 
 -- plotIndex -> slotIndex -> the physical SoilSlot part (scanned once from the Studio-built map)
--- Needed by WaterSlot's distance check.
 local slotPartCache: { [number]: { [number]: BasePart } } = {}
+
+type VisualEntry = {
+	model: Instance,
+	stage: number,
+	sparkle: Instance?,
+}
+
+-- player -> slotIndex -> currently-placed stage model/fallback part (+ sparkle), so the 1Hz
+-- loop only touches the world when a slot's stage actually changes.
+local visualState: { [Player]: { [number]: VisualEntry } } = {}
 
 -- player -> remote name -> current fixed-window rate limit counter
 local rateState: { [Player]: { [string]: { count: number, windowStart: number } } } = {}
@@ -83,8 +95,6 @@ function GardenService.EffectiveProgress(slot: Types.PlotSlot, now: number): num
 end
 
 -- ===== World cache (Studio-built map: GardenPlot tag +PlotIndex, SoilSlot tag +SlotIndex) =====
--- Only the physical part lookup is needed here (WaterSlot's distance check); prompt/visual
--- management is added in a follow-up commit.
 
 local function scanPlot(plot: Instance)
 	local plotIndex = plot:GetAttribute("PlotIndex")
@@ -121,6 +131,18 @@ local function getSlotPart(plotIndex: number, slotIndex: number): BasePart?
 		return nil
 	end
 	return slots[slotIndex]
+end
+
+local function ensurePrompt(part: BasePart): ProximityPrompt
+	local prompt = part:FindFirstChildOfClass("ProximityPrompt")
+	if prompt == nil then
+		prompt = Instance.new("ProximityPrompt")
+		prompt.MaxActivationDistance = GameConfig.PROMPT_MAX_DISTANCE
+		prompt.RequiresLineOfSight = false
+		prompt.HoldDuration = 0
+		prompt.Parent = part
+	end
+	return prompt
 end
 
 -- ===== Rate limiting (fixed window, ≤ GameConfig.RATE_LIMIT_PER_SECOND calls/sec/remote) =====
@@ -339,8 +361,209 @@ local function onHarvestSlot(player: Player, ...: any)
 	GardenService.HarvestSlot(player, slotIndex)
 end
 
+-- ===== 1Hz visual loop: stage models, ready sparkle, ProximityPrompt ActionText =====
+
+local function getStageModel(seedId: string, stage: number): Model?
+	local assets = ReplicatedStorage:FindFirstChild("Assets")
+	if assets == nil then
+		return nil
+	end
+	local plants = assets:FindFirstChild("Plants")
+	if plants == nil then
+		return nil
+	end
+	local species = plants:FindFirstChild(seedId)
+	if species == nil then
+		return nil
+	end
+	local stageModel = species:FindFirstChild(`Stage{stage}`)
+	if stageModel ~= nil and stageModel:IsA("Model") then
+		return stageModel
+	end
+	return nil
+end
+
+local function getFxTemplate(name: string): Instance?
+	local assets = ReplicatedStorage:FindFirstChild("Assets")
+	if assets == nil then
+		return nil
+	end
+	local fx = assets:FindFirstChild("FX")
+	if fx == nil then
+		return nil
+	end
+	return fx:FindFirstChild(name)
+end
+
+local function buildFallbackVisual(
+	plantDef: PlantConfig.PlantDef,
+	stage: number,
+	slotPart: BasePart
+): BasePart
+	local size = FALLBACK_STAGE_SIZES[stage] or FALLBACK_STAGE_SIZES[#FALLBACK_STAGE_SIZES]
+	local part = Instance.new("Part")
+	part.Name = "PlantVisual"
+	part.Shape = Enum.PartType.Ball
+	part.Size = Vector3.new(size, size, size)
+	part.Color = plantDef.Color
+	part.Material = Enum.Material.SmoothPlastic
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CastShadow = false
+	part.Position = slotPart.Position + Vector3.new(0, slotPart.Size.Y / 2 + size / 2, 0)
+	part.Parent = slotPart.Parent
+	return part
+end
+
+local function buildStageVisual(
+	seedId: string,
+	plantDef: PlantConfig.PlantDef,
+	stage: number,
+	slotPart: BasePart
+): Instance
+	local stageModel = getStageModel(seedId, stage)
+	if stageModel == nil then
+		return buildFallbackVisual(plantDef, stage, slotPart)
+	end
+
+	local clone = stageModel:Clone()
+	clone:PivotTo(CFrame.new(slotPart.Position + Vector3.new(0, slotPart.Size.Y / 2, 0)))
+	clone.Parent = slotPart.Parent
+	return clone
+end
+
+local function setSparkle(entry: VisualEntry, slotPart: BasePart, ready: boolean)
+	if ready then
+		if entry.sparkle == nil then
+			local template = getFxTemplate("Sparkle")
+			if template ~= nil then
+				local clone = template:Clone()
+				clone.Parent = slotPart
+				entry.sparkle = clone
+			end
+		end
+	elseif entry.sparkle ~= nil then
+		entry.sparkle:Destroy()
+		entry.sparkle = nil
+	end
+end
+
+-- Sparkle is parented to the slot part, not the model (ParticleEmitter can't parent to a
+-- Model), so both must be destroyed explicitly - destroying only the model leaks the sparkle.
+local function destroyVisualEntry(entry: VisualEntry)
+	entry.model:Destroy()
+	if entry.sparkle ~= nil then
+		entry.sparkle:Destroy()
+	end
+end
+
+local function clearVisual(player: Player, slotIndex: number)
+	local playerState = visualState[player]
+	if playerState == nil then
+		return
+	end
+
+	local entry = playerState[slotIndex]
+	if entry == nil then
+		return
+	end
+
+	destroyVisualEntry(entry)
+	playerState[slotIndex] = nil
+end
+
+local function updateSlotVisual(
+	player: Player,
+	plotIndex: number,
+	slotIndex: number,
+	slot: Types.PlotSlot,
+	now: number
+)
+	local slotPart = getSlotPart(plotIndex, slotIndex)
+	if slotPart == nil then
+		return
+	end
+
+	local prompt = ensurePrompt(slotPart)
+
+	local playerState = visualState[player]
+	if playerState == nil then
+		playerState = {}
+		visualState[player] = playerState
+	end
+
+	if slot.SeedId == nil then
+		clearVisual(player, slotIndex)
+		prompt.ActionText = "Plant"
+		prompt.ObjectText = "Empty Soil"
+		prompt.Enabled = true
+		return
+	end
+
+	local plantDef = PlantConfig[slot.SeedId]
+	if plantDef == nil then
+		prompt.Enabled = false
+		return
+	end
+
+	local progress = GardenService.EffectiveProgress(slot, now)
+	local ready = progress >= 1
+	local stage = if ready then 4 else math.clamp(math.floor(progress * 3) + 1, 1, 3)
+
+	local entry = playerState[slotIndex]
+	if entry == nil or entry.stage ~= stage then
+		if entry ~= nil then
+			destroyVisualEntry(entry)
+		end
+		entry = {
+			model = buildStageVisual(slot.SeedId, plantDef, stage, slotPart),
+			stage = stage,
+			sparkle = nil,
+		}
+		playerState[slotIndex] = entry
+	end
+
+	setSparkle(entry, slotPart, ready)
+
+	prompt.ActionText = if ready then "Harvest" else "Water"
+	prompt.ObjectText = plantDef.Name
+	prompt.Enabled = true
+end
+
+local function visualTick()
+	local now = os.time()
+
+	for _, player in Players:GetPlayers() do
+		local data = DataService.GetData(player)
+		if data == nil then
+			continue
+		end
+
+		local plotIndex = player:GetAttribute("PlotIndex")
+		if type(plotIndex) ~= "number" then
+			continue
+		end
+
+		for slotIndex = 1, data.UnlockedSlots do
+			local slot = data.Slots[slotIndex]
+			if slot ~= nil then
+				updateSlotVisual(player, plotIndex, slotIndex, slot, now)
+			end
+		end
+	end
+end
+
 local function onPlayerRemoving(player: Player)
 	rateState[player] = nil
+
+	local playerState = visualState[player]
+	if playerState ~= nil then
+		for slotIndex in playerState do
+			clearVisual(player, slotIndex)
+		end
+		visualState[player] = nil
+	end
 end
 
 function GardenService.Init()
@@ -351,6 +574,13 @@ function GardenService.Init()
 	Remotes.HarvestSlot.OnServerEvent:Connect(onHarvestSlot)
 
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
+
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			visualTick()
+		end
+	end)
 end
 
 return GardenService

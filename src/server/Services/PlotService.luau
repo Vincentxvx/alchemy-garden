@@ -82,6 +82,8 @@ local function onPlayerAdded(player: Player)
 
 	ownerByPlot[index] = player
 	plotByPlayer[player] = plot
+	-- Replicated attribute so clients can identify their own plot without a remote (GardenController).
+	player:SetAttribute("PlotIndex", index)
 
 	setSign(plot, player.DisplayName)
 end
@@ -99,6 +101,7 @@ local function onPlayerRemoving(player: Player)
 
 	setSign(plot, "")
 	plotByPlayer[player] = nil
+	player:SetAttribute("PlotIndex", nil)
 end
 
 function PlotService.Init()
