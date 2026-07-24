@@ -35,3 +35,16 @@ generate map geometry in code unless asked.
 Plants: ReplicatedStorage/Assets/Plants/<SpeciesId>/Stage1..Stage4 - fallback to default
 sprout if missing. Tags: GardenPlot(+PlotIndex attr), SoilSlot(+SlotIndex attr), SeedShop,
 AlchemyTable, QuestBoard. FX: ReplicatedStorage/Assets/FX/<Name>, skip if absent.
+
+## MCP tools (Studio bridge)
+The robloxstudio MCP tools can read and write the live Studio DOM directly (Workspace
+included) and can also read/edit scripts - this bypasses Rojo/git entirely.
+- Default stays hand-building in Studio for map/world work (Phase 1 plots, Phase 10
+  environment pass, etc.) - MCP is not a general-purpose way to build out the map.
+- Only use MCP tools for a specific placement or edit when explicitly asked for it in
+  that session's prompt.
+- NEVER use MCP tools to edit src/server, src/client, or src/shared files or their
+  live Studio copies. All logic/script changes go through the normal file-writing flow
+  (edit the file, let Rojo sync it) so they stay visible in git history. Editing a
+  synced script's live copy directly in Studio gets overwritten by Rojo anyway and
+  creates confusing drift between git and the running place.
