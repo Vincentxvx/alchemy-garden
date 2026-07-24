@@ -46,6 +46,7 @@ local DataService = {}
 
 local profiles: { [Player]: PlayerProfile } = {}
 local lastSync: { [Player]: number } = {}
+local pendingSync: { [Player]: boolean } = {}
 
 local function getOrCreateLeaderstats(player: Player): Folder
 	local existing = player:FindFirstChild("leaderstats")
@@ -110,12 +111,30 @@ function DataService.Sync(player: Player)
 	lastSync[player] = os.clock()
 end
 
--- Call after any mutation; throttles to <=1 StateSync/sec per player.
+-- Call after any mutation; throttles to <=1 StateSync/sec per player. A mutation that lands
+-- inside the throttle window is never silently dropped - it schedules one trailing catch-up
+-- sync for when the window reopens (a no-op if one is already pending), so the client is
+-- guaranteed to see the latest data within SYNC_INTERVAL even under rapid-fire actions
+-- (e.g. spamming Shop's Buy buttons) instead of displaying whatever the last delivered
+-- snapshot happened to be.
 function DataService.MarkDirty(player: Player)
 	local last = lastSync[player]
 	if last == nil or os.clock() - last >= SYNC_INTERVAL then
 		DataService.Sync(player)
+		return
 	end
+
+	if pendingSync[player] then
+		return
+	end
+	pendingSync[player] = true
+
+	task.delay(SYNC_INTERVAL - (os.clock() - last), function()
+		pendingSync[player] = nil
+		if profiles[player] ~= nil then
+			DataService.Sync(player)
+		end
+	end)
 end
 
 -- Clamps to >=0 and syncs. The only place gold should be mutated from.
@@ -146,6 +165,7 @@ local function onPlayerAdded(player: Player)
 	profile.OnSessionEnd:Connect(function()
 		profiles[player] = nil
 		lastSync[player] = nil
+		pendingSync[player] = nil
 		player:Kick("Your data session has ended. Please rejoin.")
 	end)
 
@@ -179,6 +199,7 @@ local function onPlayerRemoving(player: Player)
 	end
 	profiles[player] = nil
 	lastSync[player] = nil
+	pendingSync[player] = nil
 end
 
 function DataService.Init()
